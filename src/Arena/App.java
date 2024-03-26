@@ -42,59 +42,21 @@ import org.dyn4j.world.result.RaycastResult;
 
 import Arena.engine.Controller;
 import Arena.engine.Time;
+import Arena.test.ExampleBot;
 import Arena.test.TestBot;
 
 public class App extends SimulationFrame
 {
-    /** The serial version id */
-    private static final long serialVersionUID = 1462952703366297615L;
-
-    public static final Object INDESTRUCTIBLE = new Object();
-
-    // controls
-    // private final BooleanStateKeyboardInputHandler driveForward;
-    // private final BooleanStateKeyboardInputHandler driveBackward;
-    // private final BooleanStateKeyboardInputHandler rotateLeft;
-    // private final BooleanStateKeyboardInputHandler rotateRight;
-    // private final BooleanStateKeyboardInputHandler rotateTurretLeft;
-    // private final BooleanStateKeyboardInputHandler rotateTurretRight;
-    // private final BooleanStateKeyboardInputHandler shoot;
-
-
     private Controller bot1;
+    private Controller bot2;
 
     private Time time = new Time();
-
-    /**
-     * Default constructor.
-     */
+    
     public App()
     {
         super("Tank");
-
-        // this.driveForward = new BooleanStateKeyboardInputHandler(this.canvas, KeyEvent.VK_W);
-        // this.driveBackward = new BooleanStateKeyboardInputHandler(this.canvas, KeyEvent.VK_S);
-        // this.rotateLeft = new BooleanStateKeyboardInputHandler(this.canvas, KeyEvent.VK_A);
-        // this.rotateRight = new BooleanStateKeyboardInputHandler(this.canvas, KeyEvent.VK_D);
-        // this.rotateTurretLeft = new BooleanStateKeyboardInputHandler(this.canvas, KeyEvent.VK_LEFT);
-        // this.rotateTurretRight = new BooleanStateKeyboardInputHandler(this.canvas, KeyEvent.VK_RIGHT);
-        // this.shoot = new BooleanStateKeyboardInputHandler(this.canvas, KeyEvent.VK_E);
-
-        // this.driveForward.install();
-        // this.driveBackward.install();
-        // this.rotateLeft.install();
-        // this.rotateRight.install();
-        // this.rotateTurretLeft.install();
-        // this.rotateTurretRight.install();
-        // this.shoot.install();
     }
 
-    /*
-     * (non-Javadoc)
-     * 
-     * @see
-     * org.dyn4j.samples.framework.SimulationFrame#initializeCamera(org.dyn4j.samples.framework.Camera)
-     */
     @Override
     protected void initializeCamera(Camera camera)
     {
@@ -102,22 +64,12 @@ public class App extends SimulationFrame
         camera.scale = 48.0;
     }
 
-    /*
-     * (non-Javadoc)
-     * 
-     * @see org.dyn4j.samples.framework.SimulationFrame#printControls()
-     */
     @Override
     protected void printControls()
     {
         super.printControls();
     }
 
-    /**
-     * Creates game objects and adds them to the world.
-     * <p>
-     * Basically the same shapes from the Shapes test in the TestBed.
-     */
     protected void initializeWorld()
     {
         this.world.setGravity(World.ZERO_GRAVITY);
@@ -126,7 +78,7 @@ public class App extends SimulationFrame
         SimulationBody triangle = new SimulationBody();
         triangle.addFixture(Geometry.createTriangle(new Vector2(0.0, 0.5), new Vector2(-0.5, -0.5), new Vector2(0.5, -0.5)));
         triangle.translate(new Vector2(-2.5, 3));
-        triangle.setMass(MassType.INFINITE);
+        triangle.setMass(MassType.NORMAL);
         this.world.addBody(triangle);
 
         // Segment
@@ -157,125 +109,32 @@ public class App extends SimulationFrame
         capsule.setMass(MassType.INFINITE);
         this.world.addBody(capsule);
 
-        bot1 = new TestBot(this.world);
+        bot1 = new ExampleBot(this.world);
+        bot2 = new TestBot(this.world);
     }
 
-    /*
-     * @see org.dyn4j.samples.SimulationFrame#render(java.awt.Graphics2D, double)
-     */
     protected void render(Graphics2D g, double elapsedTime)
     {
         super.render(g, elapsedTime);
 
-        final double r = 4.0;
         final double scale = this.getCameraScale();
-        final double length = 100;
-        
-
-        Vector2 start = bot1.getTransform().getTransformed(new Vector2(0.0, 0.55));
-        Vector2 direction = bot1.getTransform().getTransformedR(new Vector2(0.0, 1.0));
-
-        Ray ray = new Ray(start, direction);
-        g.setColor(Color.RED);
-        g.draw(new Line2D.Double(ray.getStart().x * scale, ray.getStart().y * scale, ray.getStart().x * scale + ray.getDirectionVector().x * length * scale, ray.getStart().y * scale + ray.getDirectionVector().y * length * scale));
-
-        List<RaycastResult<SimulationBody, BodyFixture>> results = this.world.raycast(ray, length, new DetectFilter<SimulationBody, BodyFixture>(true, true, null));
-        for (RaycastResult<SimulationBody, BodyFixture> result : results)
-        {
-            // draw the intersection
-            Vector2 point = result.getRaycast().getPoint();
-            g.setColor(Color.GREEN);
-            g.fill(new Ellipse2D.Double(point.x * scale - r * 0.5, point.y * scale - r * 0.5, r, r));
-            g.setColor(Color.BLUE);
-            g.draw(new Line2D.Double(point.x * scale, point.y * scale, point.x * scale + result.getRaycast().getNormal().x * scale, point.y * scale + result.getRaycast().getNormal().y * scale));
-        }
+        bot1.DrawGizmos(g, elapsedTime, scale);
+        bot2.DrawGizmos(g, elapsedTime, scale);
     }
-
-    /*
-     * (non-Javadoc)
-     * 
-     * @see org.dyn4j.samples.framework.SimulationFrame#handleEvents()
-     */
 
     @Override
     protected void handleEvents()
     {
         super.handleEvents();
 
-        time.Update();
-        bot1.GlobalUpdate();
-        
-
-        // if (this.rotateTurretLeft.isActive()) {
-        // Vector2 normal = this.barrel.getTransform().getTransformedR(new Vector2(-1.0, 0.0));
-        // normal.multiply(0.1);
-
-        // Vector2 point = this.barrel.getTransform().getTransformed(new Vector2(0.0, 1.0));
-        // this.barrel.applyForce(normal, point);
-        // }
-
-        // if (this.rotateTurretRight.isActive()) {
-        // Vector2 normal = this.barrel.getTransform().getTransformedR(new Vector2(1.0, 0.0));
-        // normal.multiply(0.1);
-
-        // Vector2 point = this.barrel.getTransform().getTransformed(new Vector2(0.0, 1.0));
-        // this.barrel.applyForce(normal, point);
-        // }
-
-        // if (this.driveForward.isActive()) {
-        // Vector2 normal = this.tank.getTransform().getTransformedR(new Vector2(0.0, 1.0));
-        // normal.multiply(5);
-
-        // tank.applyForce(normal);
-        // }
-
-        // if (this.driveBackward.isActive()) {
-        // Vector2 normal = this.tank.getTransform().getTransformedR(new Vector2(0.0, 1.0));
-        // normal.multiply(-5);
-
-        // tank.applyForce(normal);
-        // }
-
-        // if (this.rotateLeft.isActive()) {
-        // tank.applyTorque(Math.PI / 2);
-        // }
-
-        // if (this.rotateRight.isActive()) {
-        // tank.applyTorque(-Math.PI / 2);
-        // }
-
-        // make sure the linear velocity is already in the direction of the tank front
-        
-
-        // if (this.shoot.isActiveButNotHandled()) {
-        // this.shoot.setHasBeenHandled(true);
-        // final double length = 100;
-
-        // Vector2 start = this.barrel.getTransform().getTransformed(new Vector2(0.0, 0.55));
-        // Vector2 direction = this.barrel.getTransform().getTransformedR(new Vector2(0.0, 1.0));
-
-        // Ray ray = new Ray(start, direction);
-        // RaycastResult<SimulationBody, BodyFixture> result =
-        // this.world.raycastClosest(ray, length, new DetectFilter<SimulationBody, BodyFixture>(true, true,
-        // null) {
-        // @Override
-        // public boolean isAllowed(SimulationBody body, BodyFixture fixture) {
-        // boolean isAllowed = super.isAllowed(body, fixture);
-        // return isAllowed && body.getUserData() != INDESTRUCTIBLE;
-        // }
-        // });
-
-        // if (result != null) {
-        // this.world.removeBody(result.getBody());
-        // }
-        // }
+        if (!this.isPaused())
+        {
+            time.Update();
+            bot1.GlobalUpdate();
+            bot2.GlobalUpdate();
+        }
     }
 
-    /**
-     * Entry point for the example application.
-     * 
-     * @param args command line arguments
-     */
     public static void main(String[] args)
     {
         App simulation = new App();

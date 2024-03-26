@@ -1,10 +1,14 @@
-package Arena.engine;
+ package Arena.engine;
+
+import java.awt.Graphics2D;
+import java.security.InvalidParameterException;
 
 import org.dyn4j.dynamics.joint.FrictionJoint;
 import org.dyn4j.dynamics.joint.RevoluteJoint;
 import org.dyn4j.geometry.Geometry;
 import org.dyn4j.geometry.Interval;
 import org.dyn4j.geometry.MassType;
+import org.dyn4j.geometry.Rotation;
 import org.dyn4j.geometry.Transform;
 import org.dyn4j.geometry.Vector2;
 import org.dyn4j.samples.framework.SimulationBody;
@@ -12,14 +16,19 @@ import org.dyn4j.world.World;
 import org.tinylog.Logger;
 import org.tinylog.TaggedLogger;
 
+import Arena.player.RaycastData;
+
 public abstract class Controller
 {
     protected final TaggedLogger logger = Logger.tag(getName());
     
-    private final float maxSpeed = 5f;
-    private final float maxTurningSpeed = 4f;
+    private static final float MAX_DRIVE_SPEED = 10f;
+    private static final float MAX_TURNING_SPEED = 6f;
+    private static final float MAX_SIGHT_DISTANCE = 10;
+    public static final float MAX_SIGHT_ANGLE = 15;
 
-    private SimulationBody tank;
+    private final SimulationBody tank;
+    private final World<SimulationBody> world;
     // private SimulationBody barrel;
     
     private boolean inTurn = false;
@@ -27,11 +36,14 @@ public abstract class Controller
 
     public Controller(World<SimulationBody> world)
     {
+        this.world = world;
+
         // Circle
         SimulationBody circle = new SimulationBody();
-        circle.setUserData(Arena.App.INDESTRUCTIBLE);
+        circle.setUserData(this);
         circle.addFixture(Geometry.createCircle(0.5));
         circle.translate(new Vector2(3.2, 3.5));
+        circle.rotateAboutCenter(Math.PI * 0.25);
         circle.setMass(MassType.INFINITE);
         world.addBody(circle);
 
@@ -41,30 +53,12 @@ public abstract class Controller
         tank.setMass(MassType.NORMAL);
         world.addBody(tank);
 
-        // barrel = new SimulationBody();
-        // // NOTE: make the mass of the barrel less so that driving doesn't turn the barrel
-        // barrel.addFixture(Geometry.createRectangle(0.15, 1.0), 0.2);
-        // barrel.setMass(MassType.NORMAL);
-        // barrel.translate(0.0, 0.5);
-        // world.addBody(barrel);
-
-        // // make the barrel pivot about the body
-        // RevoluteJoint<SimulationBody> rj = new RevoluteJoint<SimulationBody>(tank, barrel, tank.getWorldCenter());
-        // world.addJoint(rj);
-
         // add friction to the motion of the body driving
         FrictionJoint<SimulationBody> fj2 = new FrictionJoint<SimulationBody>(tank, circle, tank.getWorldCenter());
         fj2.setMaximumForce(2);
         fj2.setMaximumTorque(1);
         fj2.setCollisionAllowed(true);
         world.addJoint(fj2);
-
-        // // add fricition to the motion of the barrel
-        // FrictionJoint<SimulationBody> fj = new FrictionJoint<SimulationBody>(circle, barrel, tank.getWorldCenter());
-        // fj.setMaximumForce(0);
-        // fj.setMaximumTorque(0.2);
-        // fj.setCollisionAllowed(true);
-        // world.addJoint(fj);
     }
 
     public static class MotionInput
@@ -85,8 +79,8 @@ public abstract class Controller
          */
         public MotionInput(float speed, float turn)
         {
-            this.speed = speed;
-            this.turn = turn;
+            this.speed = Math.max(-1, Math.min(1, speed));
+            this.turn = Math.max(-1, Math.min(1, turn));
         }
     }
 
@@ -100,7 +94,11 @@ public abstract class Controller
         return tank.getTransform().copy();
     }
 
-
+    public Rotation getRotation()
+    {
+        return tank.getTransform().getRotation().copy();
+    }
+    
     private void ThrowIfOutOfTurn() throws OperationOutOfTurnException
     {
         if (!inTurn)
@@ -108,11 +106,33 @@ public abstract class Controller
             throw new OperationOutOfTurnException();
         }
     }
-
+    
     protected void SetMotionInput(MotionInput motionInput) throws OperationOutOfTurnException
     {
         ThrowIfOutOfTurn();
         this.motionInput = motionInput;
+    }
+
+    protected RaycastData getObjectInSight() throws OperationOutOfTurnException
+    {
+        ThrowIfOutOfTurn();
+        return RaycastData.Raycast(world, getPos(), getTransform().getTransformedR(new Vector2(0, 1)), MAX_SIGHT_DISTANCE);
+    } 
+    protected RaycastData getObjectInSight(float angle) throws OperationOutOfTurnException
+    {
+        ThrowIfOutOfTurn();
+
+        if (angle > MAX_SIGHT_ANGLE || angle < -MAX_SIGHT_ANGLE)
+        {
+            throw new InvalidParameterException("Trying to look outside of sight lines");
+        }
+
+        return RaycastData.Raycast(world, getPos(), getTransform().getTransformedR(new Vector2(0, 1).rotate(angle * (Math.PI / 180.0))), MAX_SIGHT_DISTANCE);
+    } 
+
+    public void DrawGizmos(Graphics2D g, double timeDelta, double scale)
+    {
+        return;
     }
     
     public void GlobalUpdate()
@@ -153,11 +173,11 @@ public abstract class Controller
         // apply force based on vars
         // driving
         normal = tank.getTransform().getTransformedR(new Vector2(0.0, 1.0));
-        normal.multiply(maxSpeed * motionInput.speed);
+        normal.multiply(MAX_DRIVE_SPEED * motionInput.speed);
         tank.applyForce(normal);
 
         // turning
-        tank.applyTorque((Math.PI / 2) * motionInput.turn * maxTurningSpeed);
+        tank.applyTorque((Math.PI / 2) * motionInput.turn * MAX_TURNING_SPEED);
         
         
         inTurn = false;
